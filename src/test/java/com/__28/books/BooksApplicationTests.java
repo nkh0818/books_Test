@@ -25,7 +25,7 @@ class BooksApplicationTests {
 	void 테스트_확인() throws Exception {
 		mockMvc.perform(get("/"))
 				.andExpect(status().isOk())
-				.andExpect(content().string("테스트 요!"));
+				.andExpect(content().string("테슽!"));
 	}
 
 	@Test
@@ -33,5 +33,12 @@ class BooksApplicationTests {
 		mockMvc.perform(get("/"))
 				.andExpect(status().isOk())
 				.andExpect(content().string("테스트 실패!"));
+	}
+
+	@Test
+	void 테스트_확인_실패용링크() throws Exception {
+		mockMvc.perform(get("/qwe"))
+				.andExpect(status().isOk())
+				.andExpect(content().string("테슽"));
 	}
 }
