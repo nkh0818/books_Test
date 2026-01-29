@@ -9,7 +9,7 @@
 		<version>2.7.18</version>
 		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.01_28</groupId>
+	<groupId>com.__28</groupId>
 	<artifactId>books</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>books</name>
@@ -75,7 +75,7 @@
 
 	<build>
 		<plugins>
-			<plugin>
+			<!-- <plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
@@ -86,7 +86,7 @@
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
-			</plugin>
+			</plugin> -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>

@@ -27,10 +27,13 @@
 - mvnw test                             // 모든테스트 실행
 - mvnw test -Dtest=클래스명            // 특정테스트 특정 실행
 - mvnw test -Dtest=클래스명#메서드명    // 특정테스트에서 특정 메서드 실행
-
+mvnw test -Dtest=BooksApplication#테스트_확인
 ## 해야할것
 - AOP설정
 - 메서드가 실행전 syso("메서드실행전")입니다.뜨게
 - 그리고 around 설정으로 메서드 앞뒤에 메서드 실행 전, 후 중간 매개변수랑 반환값 출력도
 - 컨트롤러는 기본적으로 도서 등록(add)/수정(update)/조회(select)
 - Junit 해보기
+- entity 설계랑 레포지토리 설계해서
+- 코드 구현
+- 그러고 나서 mock는 진짜 가짜 객체를 이용해서 테스트
