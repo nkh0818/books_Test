@@ -1,28 +1,16 @@
+# [1번 구역] 공통 설정 및 현재 사용할 모드 선택
 spring:
+  profiles:
+    active: h2  # <--- 여기서 'mysql' 또는 'h2'로 딸깍 한 번에 바꿉니다!
+  
   application:
     name: domain
-
-  datasource:
-    url: jdbc:mysql://localhost:3306/autoTour?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: root
-    password: 1234
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update # 개발 중에는 update, 운영 시 validate/none
-    properties:
-      hibernate:
-        format_sql: true
-        # 지연 로딩된 객체가 비어있어도 에러를 내지 않고 null로 처리함
-        serialization:
-          fail_on_empty_beans: false
-    show-sql: true
 
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
 
+# API 키 설정 (공통)
 api:
   weather:
     url: "http://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst"
@@ -30,3 +18,45 @@ api:
   tour:
     url: "http://apis.data.go.kr/B551011/KorService2/areaBasedList2"
     serviceKey: "공공데이터 포탈키"
+
+---
+# [2번 구역] MySQL 모드 설정
+spring:
+  config:
+    activate:
+      on-profile: mysql
+  datasource:
+    url: jdbc:mysql://localhost:3306/autoTour?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        serialization:
+          fail_on_empty_beans: false
+
+---
+# [3번 구역] H2(MySQL 없을 때) 모드 설정
+spring:
+  config:
+    activate:
+      on-profile: h2
+  datasource:
+    url: jdbc:h2:mem:autoTour;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create
+    show-sql: true
+    properties:
+      hibernate:
+        serialization:
+          fail_on_empty_beans: false
