@@ -65,10 +65,10 @@ src/main/java/com/autotour/controller/TourController.java & UserTripController.j
 yaml , + index 들어가있음 공공api , 카카오 api
 
  # 추가하고 싶은 기능
- - 직선거리 재기 + 길찾기 + 버스or지하철 로 가는빠른길
+ - 직선거리 재기 + 길찾기 + 버스or지하철 로 가는빠른길 혹은 복사붇여넣기하면  네이버지도로 바로 가서 검색 기능..
 
 
-
+화이팅
 
 
 
