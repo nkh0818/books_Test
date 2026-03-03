@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: domain
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/autoTour?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update # 개발 중에는 update, 운영 시 validate/none
+    properties:
+      hibernate:
+        format_sql: true
+        # 지연 로딩된 객체가 비어있어도 에러를 내지 않고 null로 처리함
+        serialization:
+          fail_on_empty_beans: false
+    show-sql: true
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+api:
+  weather:
+    url: "http://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst"
+    serviceKey: "공공데이터 포탈키"
+  tour:
+    url: "http://apis.data.go.kr/B551011/KorService2/areaBasedList2"
+    serviceKey: "공공데이터 포탈키"

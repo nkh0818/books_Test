@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 여행 플래너 Pro</title>
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=카카오맵키&libraries=services&autoload=false"></script>
+    <style>
+        :root { --primary: #4A90E2; --bg: #f8f9fa; }
+        body { margin: 0; font-family: 'Pretendard', sans-serif; display: flex; height: 100vh; background: var(--bg); }
+        #sidebar { width: 430px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+        .tab-menu { display: flex; background: #eee; }
+        .tab-btn { flex: 1; padding: 15px; border: none; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .content-area { flex: 1; overflow-y: auto; padding: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        
+        /* 여행 카드 */
+        .trip-card { background: white; border: 1px solid #ddd; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .route-summary { background: #f0f4f8; padding: 10px; border-radius: 8px; font-size: 12px; margin: 10px 0; color: #333; line-height: 1.6; }
+        
+        #map-container { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
+        
+        /* 상세보기 팝업 */
+        #detail-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; }
+        .detail-window { background: white; width: 340px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; }
+
+        button { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-blue { background: var(--primary); color: white; width: 100%; }
+        .btn-green { background: #28a745; color: white; }
+        .btn-red { background: #ff4d4d; color: white; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="tab-menu">
+        <button class="tab-btn active" id="tab-create-btn" onclick="showTab('create')">일정 만들기</button>
+        <button class="tab-btn" id="tab-list-btn" onclick="showTab('list')">내 여행첩</button>
+    </div>
+
+    <div id="tab-create" class="content-area">
+        <div style="display:flex; gap:5px; margin-bottom:10px;">
+            <input type="text" id="search-input" placeholder="장소 검색" onkeyup="if(event.keyCode==13) searchPlaces()">
+            <button onclick="searchPlaces()" style="background:#888; color:white; height:38px;">검색</button>
+        </div>
+        <div id="search-results" style="max-height: 150px; overflow-y: auto; border-bottom: 1px solid #eee;"></div>
+
+        <div style="font-weight:bold; margin: 20px 0 10px;">🕒 경로 순서</div>
+        <div id="selected-basket" style="background:#f1f3f5; padding:10px; border-radius:10px; border:1px dashed #ccc; min-height:50px;"></div>
+
+        <div style="margin-top:20px;">
+            <input type="text" id="trip-title" value="나의 여행">
+            <input type="date" id="trip-date">
+            <textarea id="trip-memo" rows="3">메모없음</textarea>
+        </div>
+        
+<div style="background:#fff3cd; padding:12px; border-radius:10px; margin-bottom:15px; font-size:12px; position:relative;">
+    🚩 <strong>시작점 설정:</strong> 지도 우클릭<br>
+    이름: <input type="text" id="start-name" value="출발지" style="width:110px; display:inline; padding:3px; margin-top:5px;">
+    <span id="start-coord-text" style="color:red; font-weight:bold; margin-left:5px;">미설정</span>
+    
+    <!-- [추가] 사이드바 내 취소 버튼 -->
+    <button onclick="clearStartPoint()" style="padding:2px 6px; font-size:10px; background:#888; color:white; margin-left:10px; border-radius:3px;">취소</button>
+</div>
+
+        <button class="btn-blue" style="padding:15px;" onclick="saveTrip()">여행 저장하기</button>
+    </div>
+
+    <div id="tab-list" class="content-area" style="display:none;">
+        <div id="trip-list-container"></div>
+    </div>
+</div>
+
+<div id="map-container">
+    <div id="map"></div>
+    <div id="detail-overlay">
+        <div class="detail-window">
+            <button onclick="closeDetail()" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:24px;">&times;</button>
+            <h3 id="det-title" style="margin:0 0 10px 0; color:var(--primary);">여행 정보</h3>
+            <div id="det-info" style="font-size:13px; margin-bottom:10px;"></div>
+            <div id="det-route-list" style="background:#f8f9fa; padding:12px; border-radius:10px; font-size:12px; max-height:150px; overflow-y:auto; line-height:1.8;"></div>
+            <div id="det-memo" style="font-size:12px; margin-top:10px; border-top:1px solid #eee; padding-top:10px; white-space:pre-wrap;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let map, basket = [], markers = [], startPoint = null, startMarker = null, polyline = null;
+    let infowindow, ps, geocoder;
+
+    function init() {
+        kakao.maps.load(() => {
+            map = new kakao.maps.Map(document.getElementById('map'), {
+                center: new kakao.maps.LatLng(37.566826, 126.9786567), level: 4
+            });
+            ps = new kakao.maps.services.Places();
+            geocoder = new kakao.maps.services.Geocoder();
+            infowindow = new kakao.maps.InfoWindow({ zIndex: 1000 });
+
+            kakao.maps.event.addListener(map, 'rightclick', e => setStartPoint(e.latLng));
+            kakao.maps.event.addListener(map, 'click', e => findPlaceName(e.latLng));
+
+            document.getElementById('trip-date').valueAsDate = new Date();
+            loadTrips();
+        });
+    }
+
+    // --- [해결] 주변의 가장 구체적인 장소명 찾기 ---
+       // --- [최종 개선] 클릭 지점의 정확한 건물명/장소명 찾기 로직 ---
+      function findPlaceName(latlng) {
+        geocoder.coord2Address(latlng.getLng(), latlng.getLat(), (result, status) => {
+            if (status === kakao.maps.services.Status.OK) {
+                const addr = result[0].address.address_name;
+                ps.keywordSearch(addr, (data, psStatus) => {
+                    let finalName = (psStatus === kakao.maps.services.Status.OK && data.length > 0) 
+                                    ? data[0].place_name : "선택한 위치";
+
+                    // [개선] 상단에 닫기 버튼(X) 추가 및 디자인 깔끔하게 변경
+                    infowindow.setContent(`
+                        <div style="padding:15px; font-size:13px; min-width:200px; position:relative; line-height:1.6;">
+                            <div onclick="infowindow.close()" style="position:absolute; top:5px; right:8px; cursor:pointer; font-size:18px; font-weight:bold; color:#999;">&times;</div>
+                            <strong style="color:#4A90E2; font-size:14px; display:block; margin-bottom:4px;">📍 ${finalName}</strong>
+                            <span style="font-size:11px; color:#888; display:block; margin-bottom:10px;">${addr}</span>
+                            <button class="btn-green" 
+                                    onclick="addToBasket('${finalName}','${latlng.getLng()}','${latlng.getLat()}')" 
+                                    style="width:100%; font-size:11px; padding:7px; cursor:pointer; background:#28a745; color:white; border:none; border-radius:4px;">
+                                이 장소 추가
+                            </button>
+                        </div>`);
+                    infowindow.setPosition(latlng);
+                    infowindow.open(map);
+                }, { location: latlng, radius: 20 });
+            }
+        });
+    }
+
+    function searchPlaces() {
+        const query = document.getElementById('search-input').value;
+        ps.keywordSearch(query, (data, status) => {
+            const resDiv = document.getElementById('search-results');
+            resDiv.innerHTML = "";
+            if (status === kakao.maps.services.Status.OK) {
+                data.forEach(p => {
+                    const div = document.createElement('div');
+                    div.style = "padding:10px; border-bottom:1px solid #eee; cursor:pointer; font-size:13px;";
+                    div.innerHTML = `<b>${p.place_name}</b><br><small>${p.address_name}</small>`;
+                    div.onclick = () => { map.panTo(new kakao.maps.LatLng(p.y, p.x)); addToBasket(p.place_name, p.x, p.y); };
+                    resDiv.appendChild(div);
+                });
+            }
+        });
+    }
+
+    function addToBasket(title, x, y) {
+        basket.push({ title, x, y });
+        updateBasketUI();
+        infowindow.close();
+    }
+
+    function updateBasketUI() {
+        const div = document.getElementById('selected-basket');
+        div.innerHTML = basket.map((b, idx) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:white; margin-bottom:5px; padding:8px; border-radius:8px; border:1px solid #ddd; font-size:12px;">
+                <span>${idx+1}. <b>${b.title}</b></span>
+                <button onclick="basket.splice(${idx},1);updateBasketUI();" style="color:red; background:none; border:none; font-weight:bold; cursor:pointer;">&times;</button>
+            </div>
+        `).join('');
+    }
+
+    function setStartPoint(latlng) {
+        if(startMarker) startMarker.setMap(null);
+        
+        startPoint = { x: latlng.getLng(), y: latlng.getLat() };
+        
+        // 시작점 전용 마커 생성
+        startMarker = new kakao.maps.Marker({
+            position: latlng, 
+            image: new kakao.maps.MarkerImage('https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png', new kakao.maps.Size(24, 35)),
+            zIndex: 1500
+        });
+        startMarker.setMap(map);
+
+        // [추가] 시작점 마커 클릭 시 삭제 팝업 노출
+        kakao.maps.event.addListener(startMarker, 'click', function() {
+            infowindow.setContent(`
+                <div style="padding:10px; font-size:12px; text-align:center;">
+                    <strong>🚩 설정된 시작점</strong><br>
+                    <button onclick="clearStartPoint()" style="margin-top:8px; background:#ff4d4d; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">시작점 삭제</button>
+                </div>`);
+            infowindow.setPosition(latlng);
+            infowindow.open(map);
+        });
+
+        document.getElementById('start-coord-text').innerText = "V 설정됨";
+        document.getElementById('start-coord-text').style.color = "blue";
+    }
+
+    function clearStartPoint() {
+        if(startMarker) startMarker.setMap(null);
+        startPoint = null;
+        infowindow.close(); // 띄워진 삭제 팝업 닫기
+        document.getElementById('start-coord-text').innerText = "미설정";
+        document.getElementById('start-coord-text').style.color = "red";
+    }
+
+    // --- [해결] 장소 정보 전체 전송 방식으로 변경 ---
+    async function saveTrip() {
+        if(basket.length === 0) return alert("장소를 추가해주세요.");
+        const finalPlaces = [...basket];
+        if(startPoint) finalPlaces.unshift({title: document.getElementById('start-name').value, x: startPoint.x.toString(), y: startPoint.y.toString()});
+
+        const payload = {
+            title: document.getElementById('trip-title').value,
+            region: "전국",
+            travelDate: document.getElementById('trip-date').value,
+            memo: document.getElementById('trip-memo').value,
+            // [수정] 백엔드 DTO 구조에 맞춰 전송
+            selectedPlaces: finalPlaces.map(p => ({ title: p.title, mapX: p.x.toString(), mapY: p.y.toString() }))
+        };
+
+        const res = await fetch('/api/tour/generate-custom', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+        });
+
+        if(res.ok) { alert("일정이 저장되었습니다."); location.reload(); }
+    }
+
+    async function loadTrips() {
+        const res = await fetch('/api/my-trips');
+        const data = await res.json();
+        const container = document.getElementById('trip-list-container');
+        
+        container.innerHTML = data.map(t => {
+            // [해결] 리스트 카드에 실제 경로 순서 텍스트 표시
+            const routeText = t.items.map(i => i.placeName).join(' → ');
+            return `
+            <div class="trip-card">
+                <div style="font-weight:bold; color:var(--primary); font-size:15px; margin-bottom:5px;">${t.title}</div>
+                <div style="font-size:12px; color:#888;">📅 ${t.travelDate} | 🌦 ${t.weatherCondition || '맑음'}</div>
+                <div class="route-summary">${routeText || '경로 없음'}</div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-green" onclick='viewOnMap(${JSON.stringify(t)})' style="flex:1; font-size:11px;">지도보기</button>
+                    <button class="btn-blue" onclick='openDetail(${JSON.stringify(t)})' style="flex:1; font-size:11px;">상세보기</button>
+                    <button onclick="deleteTrip(${t.id})" style="background:#ff4d4d; color:white; font-size:11px;">삭제</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function viewOnMap(trip) {
+        markers.forEach(m => m.setMap(null));
+        if(polyline) polyline.setMap(null);
+        markers = [];
+        const path = [], bounds = new kakao.maps.LatLngBounds();
+
+        if(!trip.items || trip.items.length === 0) return alert("경로 정보가 없습니다.");
+
+        trip.items.forEach((item, idx) => {
+            const pos = new kakao.maps.LatLng(item.mapY, item.mapX);
+            path.push(pos);
+            bounds.extend(pos);
+            const m = new kakao.maps.Marker({ position: pos, map: map });
+            markers.push(m);
+            const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px; font-size:12px;">${idx+1}. ${item.placeName}</div>` });
+            kakao.maps.event.addListener(m, 'click', () => iw.open(map, m));
+        });
+
+        polyline = new kakao.maps.Polyline({
+            path: path, strokeWeight: 5, strokeColor: '#FF4A4A', strokeOpacity: 0.8
+        });
+        polyline.setMap(map);
+        map.setBounds(bounds);
+    }
+
+    function openDetail(t) {
+        document.getElementById('detail-overlay').style.display = 'flex';
+        document.getElementById('det-title').innerText = t.title;
+        document.getElementById('det-info').innerHTML = `날짜: ${t.travelDate} | 날씨: <b>${t.weatherCondition || '맑음'}</b>`;
+        document.getElementById('det-memo').innerText = t.memo;
+        document.getElementById('det-route-list').innerHTML = t.items.map((i, idx) => `<div><b>${idx+1}.</b> ${i.placeName}</div>`).join('');
+        viewOnMap(t);
+    }
+
+    function closeDetail() { document.getElementById('detail-overlay').style.display = 'none'; }
+
+    async function deleteTrip(id) { if(confirm("삭제할까요?")) { await fetch(`/api/my-trips/${id}`, {method: 'DELETE'}); loadTrips(); } }
+
+    function showTab(t) {
+        document.getElementById('tab-create').style.display = t === 'create' ? 'block' : 'none';
+        document.getElementById('tab-list').style.display = t === 'list' ? 'block' : 'none';
+        document.getElementById('tab-create-btn').classList.toggle('active', t === 'create');
+        document.getElementById('tab-list-btn').classList.toggle('active', t === 'list');
+        if(t === 'list') loadTrips();
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
