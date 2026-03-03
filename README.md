@@ -2,6 +2,12 @@
  - 
  mvnw spring-boot:run
  http://localhost:8080/index.html
+
+# 추가! 
+ ymal파일에 공공데이터포탈키 넣기
+ +index 파일 맨위 쪽에 카카오맵 키 넣기
+
+
  - MySQL 사용
  - Id root pw 1234
  - SQL 말고 로컬 , 드라이브도 가능하게

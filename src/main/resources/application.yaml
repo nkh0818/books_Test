@@ -14,10 +14,10 @@ spring:
 api:
   weather:
     url: "http://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst"
-    serviceKey: "공공데이터 포탈키"
+    serviceKey: "공공데이터포탈키"
   tour:
     url: "http://apis.data.go.kr/B551011/KorService2/areaBasedList2"
-    serviceKey: "공공데이터 포탈키"
+    serviceKey: "공공데이터포탈키"
 
 ---
 # [2번 구역] MySQL 모드 설정
@@ -47,15 +47,17 @@ spring:
     activate:
       on-profile: h2
   datasource:
-    url: jdbc:h2:mem:autoTour;MODE=MySQL;DB_CLOSE_DELAY=-1
+    # [수정] mem 대신 file:./data/autoTour 로 변경 (프로젝트 폴더 안에 data 폴더가 생기고 저장됨)
+    url: jdbc:h2:file:./data/autoTour;MODE=MySQL;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create
-    show-sql: true
+      # [수정] create를 update로 변경 (데이터가 있으면 유지하고 없으면 생성함)
+      ddl-auto: update
+    show-sql: false # 로그가 너무 많으니 잠시 꺼두는 게 좋습니다.
     properties:
       hibernate:
         serialization:

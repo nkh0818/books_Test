@@ -23,26 +23,27 @@ public class PlaceDataLoader implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // DB를 확인해서 데이터가 없으면 JSON 로드
         if (placeMasterRepository.count() == 0) {
-            // 스프링의 ResourceLoader를 통해 파일을 가져옵니다.
             Resource resource = resourceLoader.getResource("classpath:places.json");
-
             if (resource.exists()) {
-                // JSON 파일을 읽어서 List<PlaceMaster>로 변환
+                // 대소문자 구분 없이 매핑하도록 설정 강화
+                objectMapper.configure(com.fasterxml.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES,
+                        true);
+
                 List<PlaceMaster> places = objectMapper.readValue(
                         resource.getInputStream(),
                         new TypeReference<List<PlaceMaster>>() {
                         });
 
-                // DB에 저장
+                if (!places.isEmpty() && places.get(0).getContentId() == null) {
+                    System.out.println("❌ 에러: JSON의 첫 번째 항목을 읽었지만 ID(contentId)가 비어있습니다.");
+                    System.out.println("참고용 JSON 첫 줄: " + places.get(0).toString());
+                    return;
+                }
+
                 placeMasterRepository.saveAll(places);
                 System.out.println("✅ JSON으로부터 " + places.size() + "개의 데이터를 DB에 로드했습니다.");
-            } else {
-                System.out.println("⚠️ places.json 파일을 찾을 수 없습니다. 경로를 확인하세요.");
             }
-        } else {
-            System.out.println("ℹ️ DB에 이미 데이터가 존재하여 JSON 로드를 건너뜁니다.");
         }
     }
 }
